@@ -98,7 +98,7 @@ def watch_networks():
 
                 subnet = config['Subnet']
 
-                ip_network = ipaddress.ip_network(subnet)
+                ip_network = ipaddress.ip_interface(subnet).network
 
                 # first is gateway
                 first_usable_ip = ip_network[1]
@@ -129,7 +129,7 @@ def watch_networks():
                     container_network_id: str = container_network_details['NetworkID']
                     container_network_ip_address = container_network_details.get('IPAddress', '')
                     if container_network_ip_address != '':
-                        add_seen(ipaddress.ip_address(container_network_ip_address))
+                        add_seen(ipaddress.ip_interface(container_network_ip_address).ip)
                         increment_used_ips(container_network_id)
 
             for service in client.services.list():
