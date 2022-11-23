@@ -1,4 +1,4 @@
-# Docker engine events exporter (Docker Engine/Swarm)
+# Docker engine networks exporter (Docker Engine/Swarm)
 
 ![](https://img.shields.io/docker/pulls/neuroforgede/docker-engine-networks-exporter.svg)
 
