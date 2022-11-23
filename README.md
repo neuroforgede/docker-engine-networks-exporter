@@ -5,9 +5,9 @@
 *Docker engine networks exporter* exposes docker network infromation to prometheus metrics.
 
 The following metrics are supported:
-- docker_network_used_ips
+- docker_network_container_used_ips
+- docker_network_service_used_ips
 - docker_network_usable_ips
-- docker_network_free_ips
 
 Proudly made by [NeuroForge](https://neuroforge.de/) in Bayreuth, Germany.
 
