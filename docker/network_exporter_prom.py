@@ -143,9 +143,10 @@ def watch_networks():
                 virtual_ips = service_endpoint['VirtualIPs']
                 for virtual_ip in virtual_ips:
                     virtual_ip_network_id = virtual_ip['NetworkID']
-                    virtual_ip_addr = virtual_ip['Addr']
-                    add_seen(ipaddress.ip_interface(virtual_ip_addr).ip)
-                    increment_used_ips(virtual_ip_network_id)
+                    if 'Addr' in virtual_ip:
+                        virtual_ip_addr = virtual_ip['Addr']
+                        add_seen(ipaddress.ip_interface(virtual_ip_addr).ip)
+                        increment_used_ips(virtual_ip_network_id)
 
             for network_id, network_name in network_id_to_name.items():
                 used_ips = used_ips_per_network[network_id]
