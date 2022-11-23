@@ -23,6 +23,7 @@ import platform
 from typing import Dict, Any, List, Set, Union
 import ipaddress
 from time import sleep
+import traceback
 
 APP_NAME = "Docker engine networks prometheus exporter"
 
@@ -203,4 +204,5 @@ if __name__ == '__main__':
         print_timed('Watch docker events')
         watch_networks()
     except docker.errors.APIError:
-        pass
+        traceback.print_exc()
+        exit(1)
