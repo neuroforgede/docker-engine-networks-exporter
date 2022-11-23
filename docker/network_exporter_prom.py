@@ -30,9 +30,20 @@ PROMETHEUS_EXPORT_PORT = int(os.getenv('PROMETHEUS_EXPORT_PORT', '9000'))
 DOCKER_HOSTNAME = os.getenv('DOCKER_HOSTNAME', platform.node())
 SCRAPE_INTERAL = int(os.getenv('SCRAPE_INTERVAL', '10'))
 
-DOCKER_NETWORK_USED_IPS = Gauge(
-    'docker_network_used_ips',
-    'Total used IPs in network on Host',
+DOCKER_NETWORK_CONTAINER_USED_IPS = Gauge(
+    'docker_network_container_used_ips',
+    'Total used IPs in network on Host by containers',
+    [
+        'docker_hostname',
+        'network_id',
+        'network_name',
+        'network_driver'
+    ]
+)
+
+DOCKER_NETWORK_SERVICE_USED_IPS = Gauge(
+    'docker_network_service_used_ips',
+    'Total used IPs by services (as known to the Host)',
     [
         'docker_hostname',
         'network_id',
@@ -52,17 +63,6 @@ DOCKER_NETWORK_USABLE_IPS = Gauge(
     ]
 )
 
-DOCKER_NETWORK_FREE_IPS = Gauge(
-    'docker_network_free_ips',
-    'Total available useable free IPs in network',
-    [
-        'docker_hostname',
-        'network_id',
-        'network_name',
-        'network_driver'
-    ]
-)
-
 
 def print_timed(msg):
     to_print = '{} [{}]: {}'.format(
@@ -74,8 +74,11 @@ def print_timed(msg):
 
 def watch_networks():
     client = docker.DockerClient()
+
     try:
         while True:
+            services_successful = False
+
             network_id_to_name: Dict[str, str] = {}
             usable_ips_by_id: Dict[str, int] = {}
             seen_ips: Set[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]] = set()
@@ -124,10 +127,9 @@ def watch_networks():
                 usable_ips_by_id[network.attrs['Id']] = usable_ips
 
             # seed empty
-            used_ips_per_network: Dict[str, int] = { network_id: 0 for network_id in network_id_to_name.keys()}
-
-            def increment_used_ips(key: str) -> None:
-                used_ips_per_network[key] = used_ips_per_network.get(key, 0) + 1
+            used_ips_per_network_container: Dict[str, int] = { network_id: 0 for network_id in network_id_to_name.keys()}
+            def increment_used_ips_containers(key: str) -> None:
+                used_ips_per_network_container[key] = used_ips_per_network_container.get(key, 0) + 1
 
             for container in client.containers.list(all=True):
                 container_network_details: Dict[str, Any]
@@ -136,9 +138,20 @@ def watch_networks():
                     container_network_ip_address = container_network_details.get('IPAddress', '')
                     if container_network_ip_address != '':
                         add_seen(ipaddress.ip_interface(container_network_ip_address).ip)
-                        increment_used_ips(container_network_id)
+                        increment_used_ips_containers(container_network_id)
 
-            for service in client.services.list():
+            used_ips_per_network_service: Dict[str, int] = { network_id: 0 for network_id in network_id_to_name.keys()}
+            def increment_used_ips_services(key: str) -> None:
+                used_ips_per_network_service[key] = used_ips_per_network_service.get(key, 0) + 1
+
+            try:
+                services = client.services.list()
+                services_successful = True
+            except:
+                services = []
+                pass
+
+            for service in services:
                 if 'Endpoint' not in service.attrs:
                     continue
 
@@ -152,29 +165,31 @@ def watch_networks():
                     if 'Addr' in virtual_ip:
                         virtual_ip_addr = virtual_ip['Addr']
                         add_seen(ipaddress.ip_interface(virtual_ip_addr).ip)
-                        increment_used_ips(virtual_ip_network_id)
+                        increment_used_ips_services(virtual_ip_network_id)
 
             for network_id, network_name in network_id_to_name.items():
-                used_ips = used_ips_per_network[network_id]
                 network_driver = network_drivers_by_id[network_id]
 
-                DOCKER_NETWORK_USED_IPS.labels(**{
+                DOCKER_NETWORK_CONTAINER_USED_IPS.labels(**{
                     'docker_hostname': DOCKER_HOSTNAME,
                     'network_id': network_id,
                     'network_name': network_name,
                     'network_driver': network_driver
                 }).set(
-                    used_ips
+                    used_ips_per_network_container[network_id]
                 )
 
-                DOCKER_NETWORK_FREE_IPS.labels(**{
-                    'docker_hostname': DOCKER_HOSTNAME,
-                    'network_id': network_id,
-                    'network_name': network_name,
-                    'network_driver': network_driver
-                }).set(
-                    usable_ips_by_id[network_id] - used_ips
-                )
+                if services_successful:
+
+                    DOCKER_NETWORK_SERVICE_USED_IPS.labels(**{
+                        'docker_hostname': DOCKER_HOSTNAME,
+                        'network_id': network_id,
+                        'network_name': network_name,
+                        'network_driver': network_driver
+                    }).set(
+                        used_ips_per_network_service[network_id]
+                    )
+
 
             sleep(SCRAPE_INTERAL)
     finally:
