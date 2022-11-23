@@ -36,7 +36,8 @@ DOCKER_NETWORK_USED_IPS = Gauge(
     [
         'docker_hostname',
         'network_id',
-        'network_name'
+        'network_name',
+        'network_driver'
     ]
 )
 
@@ -46,7 +47,8 @@ DOCKER_NETWORK_USABLE_IPS = Gauge(
     [
         'docker_hostname',
         'network_id',
-        'network_name'
+        'network_name',
+        'network_driver'
     ]
 )
 
@@ -56,7 +58,8 @@ DOCKER_NETWORK_FREE_IPS = Gauge(
     [
         'docker_hostname',
         'network_id',
-        'network_name'
+        'network_name',
+        'network_driver'
     ]
 )
 
@@ -76,6 +79,7 @@ def watch_networks():
             network_id_to_name: Dict[str, str] = {}
             usable_ips_by_id: Dict[str, int] = {}
             seen_ips: Set[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]] = set()
+            network_drivers_by_id: Dict[str, str] = {}
 
             def add_seen(ip_addr: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> None:
                 if ip_addr in seen_ips:
@@ -94,6 +98,7 @@ def watch_networks():
                 if config is None:
                     continue
 
+                network_drivers_by_id[network.attrs['Id']] = network.attrs['Driver']
                 network_id_to_name[network.attrs['Id']] = network.attrs['Name']
 
                 subnet = config['Subnet']
@@ -110,7 +115,8 @@ def watch_networks():
                 DOCKER_NETWORK_USABLE_IPS.labels(**{
                     'docker_hostname': DOCKER_HOSTNAME,
                     'network_id': network.attrs['Id'],
-                    'network_name': network.attrs['Name']
+                    'network_name': network.attrs['Name'],
+                    'network_driver': network.attrs['Driver']
                 }).set(
                     usable_ips
                 )
@@ -150,11 +156,13 @@ def watch_networks():
 
             for network_id, network_name in network_id_to_name.items():
                 used_ips = used_ips_per_network[network_id]
+                network_driver = network_drivers_by_id[network_id]
 
                 DOCKER_NETWORK_USED_IPS.labels(**{
                     'docker_hostname': DOCKER_HOSTNAME,
                     'network_id': network_id,
-                    'network_name': network_name
+                    'network_name': network_name,
+                    'network_driver': network_driver
                 }).set(
                     used_ips
                 )
@@ -162,7 +170,8 @@ def watch_networks():
                 DOCKER_NETWORK_FREE_IPS.labels(**{
                     'docker_hostname': DOCKER_HOSTNAME,
                     'network_id': network_id,
-                    'network_name': network_name
+                    'network_name': network_name,
+                    'network_driver': network_driver
                 }).set(
                     usable_ips_by_id[network_id] - used_ips
                 )
