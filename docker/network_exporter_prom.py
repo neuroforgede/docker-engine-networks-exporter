@@ -29,7 +29,7 @@ APP_NAME = "Docker engine networks prometheus exporter"
 
 PROMETHEUS_EXPORT_PORT = int(os.getenv('PROMETHEUS_EXPORT_PORT', '9000'))
 DOCKER_HOSTNAME = os.getenv('DOCKER_HOSTNAME', platform.node())
-SCRAPE_INTERAL = int(os.getenv('SCRAPE_INTERVAL', '10'))
+SCRAPE_INTERVAL = int(os.getenv('SCRAPE_INTERVAL', '10'))
 
 DOCKER_NETWORK_CONTAINER_USED_IPS = Gauge(
     'docker_network_container_used_ips',
@@ -192,7 +192,7 @@ def watch_networks():
                     )
 
 
-            sleep(SCRAPE_INTERAL)
+            sleep(SCRAPE_INTERVAL)
     finally:
         client.close()
 
