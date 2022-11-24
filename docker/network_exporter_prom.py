@@ -132,7 +132,7 @@ def watch_networks():
             def increment_used_ips_containers(key: str) -> None:
                 used_ips_per_network_container[key] = used_ips_per_network_container.get(key, 0) + 1
 
-            for container in client.containers.list(all=True):
+            for container in client.containers.list(all=True, ignore_removed=True):
                 container_network_details: Dict[str, Any]
                 for container_network_details in container.attrs['NetworkSettings']['Networks'].values():
                     container_network_id: str = container_network_details['NetworkID']
