@@ -148,7 +148,7 @@ def watch_networks():
             try:
                 services = client.services.list()
                 services_successful = True
-            except:
+            except docker.errors.APIError:
                 services = []
                 pass
 
