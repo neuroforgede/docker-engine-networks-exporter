@@ -87,7 +87,7 @@ def watch_networks():
 
             def add_seen(ip_addr: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> None:
                 if ip_addr in seen_ips:
-                    raise AssertionError()
+                    print_timed(f"WARN: seen {ip_addr} twice")
                 seen_ips.add(ip_addr)
 
             networks = client.networks.list()
