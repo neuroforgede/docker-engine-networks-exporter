@@ -20,7 +20,7 @@ version: "3.8"
 
 services:
   docker-engine-networks-exporter:
-    image: neuroforgede/docker-engine-networks-exporter:0.1
+    image: ghcr.io/neuroforgede/docker-engine-networks-exporter:0.1.0
     networks:
       - net
     environment:
