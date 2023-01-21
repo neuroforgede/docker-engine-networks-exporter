@@ -15,12 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import docker
 from prometheus_client import start_http_server, Gauge
 import os
 import platform
-from typing import Dict, Any, List, Set, Union
+from typing import Dict, Any, List, Set, Union, Optional
 import ipaddress
 from time import sleep
 import traceback
@@ -30,6 +30,7 @@ APP_NAME = "Docker engine networks prometheus exporter"
 PROMETHEUS_EXPORT_PORT = int(os.getenv('PROMETHEUS_EXPORT_PORT', '9000'))
 DOCKER_HOSTNAME = os.getenv('DOCKER_HOSTNAME', platform.node())
 SCRAPE_INTERVAL = int(os.getenv('SCRAPE_INTERVAL', '10'))
+MAX_RETRIES_IN_ROW = int(os.getenv('MAX_RETRIES_IN_ROW', '10'))
 
 DOCKER_NETWORK_CONTAINER_USED_IPS = Gauge(
     'docker_network_container_used_ips',
@@ -200,9 +201,29 @@ def watch_networks():
 if __name__ == '__main__':
     print_timed(f'Start prometheus client on port {PROMETHEUS_EXPORT_PORT}')
     start_http_server(PROMETHEUS_EXPORT_PORT, addr='0.0.0.0')
-    try:
-        print_timed('Watch docker events')
-        watch_networks()
-    except docker.errors.APIError:
-        traceback.print_exc()
-        exit(1)
+    
+    failure_count = 0
+    last_failure: Optional[datetime]
+    while True:
+        try:
+            print_timed('Watch docker events')
+            watch_networks()
+        except docker.errors.APIError:
+            now = datetime.now()
+
+            traceback.print_exc()
+
+            last_failure = last_failure
+            if last_failure < (now - timedelta.seconds(SCRAPE_INTERVAL * 10)):
+                print_timed("detected docker APIError, but last error was a bit back, resetting failure count.")
+                # last failure was a while back, reset
+                failure_count = 0
+
+            failure_count += 1
+            if failure_count > MAX_RETRIES_IN_ROW:
+                print_timed(f"failed {failure_count} in a row. exiting...")
+                exit(1)
+
+            last_failure = now
+            print_timed(f"waiting {SCRAPE_INTERVAL} until next cycle")
+            sleep(SCRAPE_INTERVAL)
