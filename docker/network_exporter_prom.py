@@ -26,12 +26,12 @@ import traceback
 from threading import Event
 import signal
 
-exit = Event()
+exit_event = Event()
 
 shutdown: bool = False
 def handle_shutdown(signal: Any, frame: Any) -> None:
     print_timed(f"received signal {signal}. shutting down...")
-    exit.set()
+    exit_event.set()
 
 signal.signal(signal.SIGINT, handle_shutdown)
 signal.signal(signal.SIGTERM, handle_shutdown)
@@ -90,7 +90,7 @@ def watch_networks():
     client = docker.DockerClient()
 
     try:
-        while not exit.is_set():
+        while not exit_event.is_set():
             services_successful = False
 
             network_id_to_name: Dict[str, str] = {}
@@ -203,7 +203,7 @@ def watch_networks():
                         used_ips_per_network_service[network_id]
                     )
 
-            exit.wait(SCRAPE_INTERVAL)
+            exit_event.wait(SCRAPE_INTERVAL)
     finally:
         client.close()
 
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     
     failure_count = 0
     last_failure: Optional[datetime]
-    while not exit.is_set():
+    while not exit_event.is_set():
         try:
             print_timed('Watch networks')
             watch_networks()
@@ -231,9 +231,9 @@ if __name__ == '__main__':
 
             failure_count += 1
             if failure_count > MAX_RETRIES_IN_ROW:
-                print_timed(f"failed {failure_count} in a row. exiting...")
+                print_timed(f"failed {failure_count} in a row. exit_eventing...")
                 exit(1)
 
             last_failure = now
             print_timed(f"waiting {SCRAPE_INTERVAL} until next cycle")
-            exit.wait(SCRAPE_INTERVAL)
+            exit_event.wait(SCRAPE_INTERVAL)
