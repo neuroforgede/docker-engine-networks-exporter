@@ -22,20 +22,16 @@ import os
 import platform
 from typing import Dict, Any, List, Set, Union, Optional
 import ipaddress
-from time import sleep
 import traceback
+from threading import Event
 import signal
 
+exit = Event()
 
 shutdown: bool = False
 def handle_shutdown(signal: Any, frame: Any) -> None:
-    global shutdown
-    print_timed(f"received signal {signal}. Shutting down.")
-    shutdown = True
-
-def is_shutdown() -> bool:
-    global shutdown
-    return shutdown
+    print_timed(f"received signal {signal}. shutting down...")
+    exit.set()
 
 signal.signal(signal.SIGINT, handle_shutdown)
 signal.signal(signal.SIGTERM, handle_shutdown)
@@ -94,7 +90,7 @@ def watch_networks():
     client = docker.DockerClient()
 
     try:
-        while not is_shutdown():
+        while not exit.is_set():
             services_successful = False
 
             network_id_to_name: Dict[str, str] = {}
@@ -109,7 +105,6 @@ def watch_networks():
 
             networks = client.networks.list()
             for network in networks:
-
                 configs: List[Dict[str, Any]] = network.attrs['IPAM']['Config']
 
                 # why is this a list?
@@ -208,8 +203,7 @@ def watch_networks():
                         used_ips_per_network_service[network_id]
                     )
 
-
-            sleep(SCRAPE_INTERVAL)
+            exit.wait(SCRAPE_INTERVAL)
     finally:
         client.close()
 
@@ -220,7 +214,7 @@ if __name__ == '__main__':
     
     failure_count = 0
     last_failure: Optional[datetime]
-    while not is_shutdown():
+    while not exit.is_set():
         try:
             print_timed('Watch networks')
             watch_networks()
@@ -242,4 +236,4 @@ if __name__ == '__main__':
 
             last_failure = now
             print_timed(f"waiting {SCRAPE_INTERVAL} until next cycle")
-            sleep(SCRAPE_INTERVAL)
+            exit.wait(SCRAPE_INTERVAL)
