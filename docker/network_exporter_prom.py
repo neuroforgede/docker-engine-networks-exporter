@@ -206,7 +206,7 @@ if __name__ == '__main__':
     last_failure: Optional[datetime]
     while True:
         try:
-            print_timed('Watch docker events')
+            print_timed('Watch networks')
             watch_networks()
         except docker.errors.APIError:
             now = datetime.now()
