@@ -28,7 +28,7 @@ import signal
 
 
 shutdown: bool = False
-def handle_shutdown(signal: Any) -> None:
+def handle_shutdown(signal: Any, frame: Any) -> None:
     global shutdown
     print_timed(f"received signal {signal}. Shutting down.")
     shutdown = True
