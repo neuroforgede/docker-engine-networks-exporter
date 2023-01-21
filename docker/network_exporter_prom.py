@@ -24,6 +24,22 @@ from typing import Dict, Any, List, Set, Union, Optional
 import ipaddress
 from time import sleep
 import traceback
+import signal
+
+
+shutdown: bool = False
+def handle_shutdown(signal: Any) -> None:
+    global shutdown
+    print_timed(f"received signal {signal}. Shutting down.")
+    shutdown = True
+
+def is_shutdown() -> bool:
+    global shutdown
+    return shutdown
+
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
+
 
 APP_NAME = "Docker engine networks prometheus exporter"
 
@@ -78,7 +94,7 @@ def watch_networks():
     client = docker.DockerClient()
 
     try:
-        while True:
+        while not is_shutdown():
             services_successful = False
 
             network_id_to_name: Dict[str, str] = {}
@@ -204,7 +220,7 @@ if __name__ == '__main__':
     
     failure_count = 0
     last_failure: Optional[datetime]
-    while True:
+    while not is_shutdown():
         try:
             print_timed('Watch networks')
             watch_networks()
